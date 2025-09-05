@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <!-- 核心：移动端适配基础配置 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>长租收益计算表</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Font Awesome -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
+    <!-- 配置 Tailwind 自定义样式（新增移动端专属配置，不影响PC端） -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36BFFA',
+                        success: '#00B42A',
+                        warning: '#FF7D00',
+                        danger: '#F53F3F',
+                        dark: '#1D2129',
+                        light: '#F2F3F5'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'], // 移动端适配系统字体
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .card-shadow {
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08); /* PC端原有阴影，移动端通过断点调整 */
+            }
+            .section-title {
+                @apply text-lg font-semibold text-dark pb-2 border-b border-gray-200 mb-4;
+            }
+            /* PC端原有输入框样式（保持不变） */
+            .input-group {
+                @apply flex flex-col sm:flex-row justify-between items-center mb-3;
+            }
+            .input-label {
+                @apply w-full sm:w-1/3 text-gray-700 mb-2 sm:mb-0;
+            }
+            .input-control {
+                @apply w-full sm:w-2/3 bg-light rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50;
+            }
+
+            /* ########## 新增：移动端专属样式（仅在小屏幕生效） ########## */
+            /* 移动端输入框优化 */
+            .input-group-mobile {
+                @apply flex flex-col justify-start items-start mb-4; /* 纵向排列，避免拥挤 */
+            }
+            .input-label-mobile {
+                @apply text-base mb-1.5; /* 标签字号放大，间距优化 */
+            }
+            .input-control-mobile {
+                @apply py-2.5 px-3.5 text-base; /* 输入框放大点击区域，适配手指操作 */
+            }
+            /* 移动端数值卡片优化 */
+            .stat-card-mobile {
+                @apply p-3.5; /* 卡片内边距调整，更紧凑 */
+            }
+            .stat-card-label-mobile {
+                @apply text-sm; /* 卡片标签字号缩小，突出数值 */
+            }
+            /* 移动端计算结果优化（纵向排列，解决换行问题） */
+            .result-item-mobile {
+                @apply flex flex-col p-3.5; /* 纵向布局，标签/数值/公式分层 */
+            }
+            .result-label-mobile {
+                @apply mb-1 text-base; /* 结果标签间距优化 */
+            }
+            .result-value-mobile {
+                @apply text-lg; /* 结果数值字号放大，更醒目 */
+            }
+            .result-formula-mobile {
+                @apply mt-1.5 text-xs; /* 公式字号缩小，避免占用过多空间 */
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen py-8 px-4 sm:px-6 lg:px-8">
+    <!-- 容器：PC端最大宽度4xl，移动端自适应 -->
+    <div class="max-w-4xl mx-auto bg-white rounded-lg card-shadow overflow-hidden">
+        <!-- 页面头部：PC端原有样式，移动端微调内边距 -->
+        <header class="bg-primary text-white py-6 px-8 sm:py-4 sm:px-4">
+            <h1 class="text-2xl sm:text-xl font-bold flex items-center">
+                <i class="fa fa-calculator mr-3 sm:mr-2.5"></i>长租收益计算表
+            </h1>
+            <p class="mt-1 text-white/80 sm:text-sm">输入参数，实时计算长租收益</p>
+        </header>
+
+        <!-- 基础参数配置：PC端保持原有布局，移动端加载专属样式 -->
+        <section class="px-8 py-6 sm:px-4 sm:py-4">
+            <h2 class="section-title">基础参数配置</h2>
+            <form id="rentForm" class="space-y-4">
+                <!-- 每个输入组：PC端用原样式，移动端用新增的 mobile 样式 -->
+                <div class="input-group sm:input-group-mobile">
+                    <label for="inRent" class="input-label sm:input-label-mobile">收房租金（元/月）：</label>
+                    <input type="number" id="inRent" class="input-control input-control-mobile" value="3500" min="0" step="100" oninput="calculateAll()">
+                </div>
+                <div class="input-group sm:input-group-mobile">
+                    <label for="outRent" class="input-label sm:input-label-mobile">出房租金（元/月）：</label>
+                    <input type="number" id="outRent" class="input-control input-control-mobile" value="4800" min="0" step="100" oninput="calculateAll()">
+                </div>
+                <div class="input-group sm:input-group-mobile">
+                    <label for="landlordFree" class="input-label sm:input-label-mobile">房东免租期（个月/年）：</label>
+                    <input type="number" id="landlordFree" class="input-control input-control-mobile" value="1" min="0" max="12" step="1" oninput="calculateAll()">
+                </div>
+                <div class="input-group sm:input-group-mobile">
+                    <label for="vacancy" class="input-label sm:input-label-mobile">出租空置期（个月/年）：</label>
+                    <input type="number" id="vacancy" class="input-control input-control-mobile" value="1" min="0" max="12" step="1" oninput="calculateAll()">
+                </div>
+                <div class="input-group sm:input-group-mobile">
+                    <label for="leaseYears" class="input-label sm:input-label-mobile">租约年限（年）：</label>
+                    <input type="number" id="leaseYears" class="input-control input-control-mobile" value="10" min="1" max="20" step="1" oninput="calculateAll()">
+                </div>
+                <div class="input-group sm:input-group-mobile">
+                    <label for="decorationDays" class="input-label sm:input-label-mobile">装修期（天）：</label>
+                    <input type="number" id="decorationDays" class="input-control input-control-mobile" value="30" min="0" step="1" oninput="calculateAll()">
+                </div>
+                <div class="input-group sm:input-group-mobile">
+                    <label for="decorationCost" class="input-label sm:input-label-mobile">装修投入（元）：</label>
+                    <input type="number" id="decorationCost" class="input-control input-control-mobile" value="8000" min="0" step="100" oninput="calculateAll()">
+                </div>
+                <div class="input-group sm:input-group-mobile">
+                    <label for="inAgentFee" class="input-label sm:input-label-mobile">收房中介费（元）：</label>
+                    <input type="number" id="inAgentFee" class="input-control input-control-mobile" value="1750" min="0" step="100" oninput="calculateAll()">
+                </div>
+                <div class="input-group sm:input-group-mobile">
+                    <label for="outAgentFee" class="input-label sm:input-label-mobile">出房中介费（元）：</label>
+                    <input type="number" id="outAgentFee" class="input-control input-control-mobile" value="2400" min="0" step="100" oninput="calculateAll()">
+                </div>
+            </form>
+        </section>
+
+        <!-- 成本与收益明细：PC端3列/2列，移动端1列+专属卡片样式 -->
+        <section class="px-8 py-6 bg-gray-50 sm:px-4 sm:py-4">
+            <h2 class="section-title">成本与收益明细</h2>
+            <!-- 布局：PC端 grid-cols-1 sm:2 lg:3，移动端 grid-cols-1 -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-3" id="costProfitDetail">
+                <!-- 每个卡片：PC端原样式，移动端用新增的 mobile 样式 -->
+                <div class="bg-white rounded-lg card-shadow stat-card-mobile">
+                    <p class="text-gray-700 stat-card-label-mobile">装修投入</p>
+                    <p class="text-lg font-bold text-dark" id="decorationCostShow">8,000 元</p>
+                </div>
+                <div class="bg-white rounded-lg card-shadow stat-card-mobile">
+                    <p class="text-gray-700 stat-card-label-mobile">收房中介费</p>
+                    <p class="text-lg font-bold text-dark" id="inAgentFeeShow">1,750 元</p>
+                </div>
+                <div class="bg-white rounded-lg card-shadow stat-card-mobile">
+                    <p class="text-gray-700 stat-card-label-mobile">出房中介费</p>
+                    <p class="text-lg font-bold text-dark" id="outAgentFeeShow">2,400 元</p>
+                </div>
+                <div class="bg-white rounded-lg card-shadow stat-card-mobile">
+                    <p class="text-gray-700 stat-card-label-mobile">出房空置成本</p>
+                    <p class="text-lg font-bold text-dark" id="vacancyCostShow">3,500 元</p>
+                </div>
+                <div class="bg-white rounded-lg card-shadow stat-card-mobile">
+                    <p class="text-gray-700 stat-card-label-mobile">免租收益</p>
+                    <p class="text-lg font-bold text-success" id="freeRentIncomeShow">+3,500 元</p>
+                </div>
+                <div class="bg-white rounded-lg card-shadow stat-card-mobile">
+                    <p class="text-gray-700 stat-card-label-mobile">装修期收益</p>
+                    <p class="text-lg font-bold text-success" id="decorationIncomeShow">+3,500 元</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 计算结果：PC端横向布局，移动端纵向布局+专属样式 -->
+        <section class="px-8 py-6 sm:px-4 sm:py-4">
+            <h2 class="section-title">计算结果</h2>
+            <div class="space-y-4" id="calculationResult">
+                <!-- 每个结果项：PC端原横向样式，移动端用新增的 mobile 纵向样式 -->
+                <div class="bg-light rounded-lg result-item-mobile">
+                    <p class="flex justify-between items-center sm:block">
+                        <span class="text-gray-700 result-label-mobile">收房成本：</span>
+                        <span class="font-semibold text-danger result-value-mobile" id="totalCostShow">12,150 元</span>
+                    </p>
+                    <span class="text-xs text-gray-500 ml-2 sm:ml-0 result-formula-mobile">（计算公式：装修投入+收房中介费+出房中介费+出房空置成本-免租期节省成本）</span>
+                </div>
+                <div class="bg-light rounded-lg result-item-mobile">
+                    <p class="flex justify-between items-center sm:block">
+                        <span class="text-gray-700 result-label-mobile">租金溢价：</span>
+                        <span class="font-semibold text-success result-value-mobile" id="rentPremiumShow">1,300 元/月</span>
+                    </p>
+                    <span class="text-xs text-gray-500 ml-2 sm:ml-0 result-formula-mobile">（计算公式：出房价-收房价）</span>
+                </div>
+                <div class="bg-light rounded-lg result-item-mobile">
+                    <p class="flex justify-between items-center sm:block">
+                        <span class="text-gray-700 result-label-mobile">预期总收益：</span>
+                        <span class="font-semibold text-success result-value-mobile" id="totalIncomeShow">156,000 元</span>
+                    </p>
+                    <span class="text-xs text-gray-500 ml-2 sm:ml-0 result-formula-mobile">（计算公式：溢价×12×年限）</span>
+                </div>
+                <div class="bg-light rounded-lg result-item-mobile">
+                    <p class="flex justify-between items-center sm:block">
+                        <span class="text-gray-700 result-label-mobile">回本周期(月)：</span>
+                        <span class="font-semibold text-warning result-value-mobile" id="paybackPeriodShow">9.35 个月</span>
+                    </p>
+                    <span class="text-xs text-gray-500 ml-2 sm:ml-0 result-formula-mobile">（计算公式：收房成本÷溢价）</span>
+                </div>
+                <div class="bg-light rounded-lg result-item-mobile">
+                    <p class="flex justify-between items-center sm:block">
+                        <span class="text-gray-700 result-label-mobile">年化回报率：</span>
+                        <span class="font-semibold text-success result-value-mobile" id="annualReturnShow">128.4%</span>
+                    </p>
+                    <span class="text-xs text-gray-500 ml-2 sm:ml-0 result-formula-mobile">（计算公式：溢价×12÷收房成本×100%）</span>
+                </div>
+                <div class="bg-light rounded-lg result-item-mobile">
+                    <p class="flex justify-between items-center sm:block">
+                        <span class="text-gray-700 result-label-mobile">装修投入预估：</span>
+                        <span class="font-semibold text-dark result-value-mobile" id="decorationEstimateShow">9,355.00 元</span>
+                    </p>
+                    <span class="text-xs text-gray-500 ml-2 sm:ml-0 result-formula-mobile">（计算公式：（出房价-收房价）×回本周期 - 中介费（0.8倍收房租金））</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 页脚：PC端原样式，移动端微调内边距和字号 -->
+        <footer class="px-8 py-4 bg-dark text-white/70 text-center text-sm sm:px-4 sm:py-3 sm:text-xs">
+            <p>© 2025 长租收益计算工具 | 仅供参考，投资有风险</p>
+        </footer>
+    </div>
+
+    <!-- 计算逻辑保持不变，仅新增异常值兼容（避免移动端显示异常） -->
+    <script>
+        // 格式化数字为带逗号的金额格式
+        function formatMoney(num) {
+            return num.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+        }
+
+        // 计算所有指标
+        function calculateAll() {
+            // 读取输入值（兼容空值，避免计算错误）
+            const inRent = parseInt(document.getElementById('inRent').value) || 0;
+            const outRent = parseInt(document.getElementById('outRent').value) || 0;
+            const landlordFree = parseInt(document.getElementById('landlordFree').value) || 0;
+            const vacancy = parseInt(document.getElementById('vacancy').value) || 0;
+            const leaseYears = parseInt(document.getElementById('leaseYears').value) || 0;
+            const decorationDays = parseInt(document.getElementById('decorationDays').value) || 0;
+            const decorationCost = parseInt(document.getElementById('decorationCost').value) || 0;
+            const inAgentFee = parseInt(document.getElementById('inAgentFee').value) || 0;
+            const outAgentFee = parseInt(document.getElementById('outAgentFee').value) || 0;
+
+            // 计算成本与收益明细
+            const vacancyCost = inRent * vacancy;
+            const freeRentIncome = inRent * landlordFree;
+            const decorationIncome = inRent * Math.ceil(decorationDays / 30);
+
+            // 渲染成本与收益明细
+            document.getElementById('decorationCostShow').textContent = formatMoney(decorationCost) + ' 元';
+            document.getElementById('inAgentFeeShow').textContent = formatMoney(inAgentFee) + ' 元';
+            document.getElementById('outAgentFeeShow').textContent = formatMoney(outAgentFee) + ' 元';
+            document.getElementById('vacancyCostShow').textContent = formatMoney(vacancyCost) + ' 元';
+            document.getElementById('freeRentIncomeShow').textContent = '+' + formatMoney(freeRentIncome) + ' 元';
+            document.getElementById('decorationIncomeShow').textContent = '+' + formatMoney(decorationIncome) + ' 元';
+
+            // 计算核心结果（新增除以0判断，避免移动端显示NaN）
+            const totalCost = decorationCost + inAgentFee + outAgentFee + vacancyCost - freeRentIncome;
+            const rentPremium = outRent - inRent;
+            const totalIncome = rentPremium * 12 * leaseYears;
+            const paybackPeriod = rentPremium !== 0 ? (totalCost / rentPremium) : 0; // 避免除以0
+            const annualReturn = totalCost !== 0 ? ((rentPremium * 12 / totalCost) * 100).toFixed(1) : '0.0';
+            // 装修投入预估（修正后逻辑）
+            const agentFeeEstimate = 0.8 * inRent;
+            const decorationEstimate = Math.max(0, (rentPremium * paybackPeriod - agentFeeEstimate)).toFixed(2);
+
+            // 渲染计算结果
+            document.getElementById('totalCostShow').textContent = formatMoney(totalCost) + ' 元';
+            document.getElementById('rentPremiumShow').textContent = formatMoney(rentPremium) + ' 元/月';
+            document.getElementById('totalIncomeShow').textContent = formatMoney(totalIncome) + ' 元';
+            document.getElementById('paybackPeriodShow').textContent = paybackPeriod.toFixed(2) + ' 个月';
+            document.getElementById('annualReturnShow').textContent = annualReturn + '%';
+            document.getElementById('decorationEstimateShow').textContent = formatMoney(parseFloat(decorationEstimate)) + ' 元';
+        }
+
+        // 页面加载时初始化计算
+        window.onload = calculateAll;
+    </script>
+</body>
+</html>
